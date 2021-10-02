@@ -2,27 +2,28 @@ import pygame, sys
 from pygame import draw
 from pygame import display
 from pygame import event
-from pygame.constants import QUIT
-
-pygame.init()
-
-size = width, height = 320, 480
-speed = [2, 2]
-black = 0, 0, 0
-white = 255, 255, 255
-
-screen = display.set_mode(size)
-screen.fill(black)
 
 def drawGrid(block_size: int):
-    for x in range(0, width, block_size):
-        for y in range(0, height, block_size):
+    for x in range(0, WIDTH, block_size):
+        for y in range(0, HEIGHT, block_size):
             rect = pygame.Rect(x, y, block_size, block_size)
-            draw.rect(screen, white, rect, 1)
+            draw.rect(SCREEN, WHITE, rect, 1)
 
-while True:
-    drawGrid(20)
-    for e in event.get():
-        if e.type == pygame.QUIT: sys.exit(0)
-    
-    display.update()
+def main():
+    pygame.init()
+    global SIZE, WIDTH, HEIGHT, SPEED, BLACK, WHITE, SCREEN
+    SIZE = WIDTH, HEIGHT = 320, 480
+    SPEED = [2, 2]
+    BLACK = 0, 0, 0
+    WHITE = 255, 255, 255
+    SCREEN = display.set_mode(SIZE)
+    SCREEN.fill(BLACK)
+
+    while True:
+        drawGrid(20)
+        for e in event.get():
+            if e.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit(0)
+        
+        display.update()
