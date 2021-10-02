@@ -6,6 +6,7 @@ authors = ["Huy tran <huy.td183768@sis.hust.edu.vn>"]
 
 [tool.poetry.dependencies]
 python = "^3.9"
+pygame = "^2.0.1"
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"
