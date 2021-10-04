@@ -1,6 +1,7 @@
 from abc import ABCMeta, abstractmethod
 from enum import Enum
-from typing import List, Tuple
+from typing import Iterator, List, Tuple
+import random
 import pygame, sys
 from pygame import Vector2, draw, init
 from pygame import display
@@ -8,10 +9,16 @@ from pygame import event
 from pygame import time
 from pygame.transform import scale
 
+import numpy as np
+
 class Color(Enum):
     BLACK = 0, 0, 0
     WHITE = 255, 255, 255
+
+class BlockColor(Enum):
     RED = 255, 0, 0
+    GREEN = 0, 255, 0
+    BLUE = 0, 255, 255
 
 class Element(metaclass=ABCMeta):
     @abstractmethod
@@ -37,46 +44,63 @@ class Grid(Element):
 class Shape(Enum):
     SQUARE = [[1, 1],
              [1, 1]]
-            
     L_SHAPE = [[1, 0],
                 [1, 0],
                 [1, 1]]
+    STICK = [[1], [1], [1]]
+    Z = [[1, 1, 0], [0, 1, 1]]
+
+
+def shape_val_iter(shape: List[List[int]]) -> Iterator[Tuple[int, int]]:
+    for y, layer in enumerate(shape):
+        for x, val in enumerate(layer):
+            if val == 1:
+                yield (x, y)
+
 class Block(Element):
-    def __init__(self, init_pos: Vector2, block_size: float, color: Color, in_grid: Grid, shape: Shape) -> None:
+    def __init__(self, init_pos: Vector2, block_size: float, color: Color, in_grid: Grid, shape: Shape, id: int) -> None:
+        self.id = id
         self.pos = init_pos
         self.block_size = block_size
         self.color_val = color.value
         self.grid = in_grid
-        self.shape_val = shape.value
+        self.shape = shape.value
+        self.played = False
+
+    def rotate(self):
+        for x, y in shape_val_iter(self.shape):
+            self.grid.states[int(y + self.pos.y)][int(x + self.pos.x)] = 0
+        self.shape = np.rot90(np.array(self.shape)).tolist()
+        for x, y in shape_val_iter(self.shape):
+            self.grid.states[int(y + self.pos.y)][int(x + self.pos.x)] = self.id
 
     def draw(self):
-        for y, layer in enumerate(self.shape_val):
-            for x, val in enumerate(layer):
-                if val == 1:
-                    rect = pygame.Rect((self.pos.x+x)*self.block_size, (self.pos.y+y)*self.block_size, self.block_size, self.block_size)
-                    draw.rect(SCREEN, self.color_val, rect)
+        for x, y in shape_val_iter(self.shape):
+            rect = pygame.Rect((self.pos.x+x)*self.block_size, (self.pos.y+y)*self.block_size, self.block_size, self.block_size)
+            draw.rect(SCREEN, self.color_val, rect)
     
     def check_pos_in_grid(self, pos: Vector2):
-        for y, layer in enumerate(self.shape_val):
-            for x, val in enumerate(layer):
-                if val == 1:
-                    acc_x = int(x+pos.x)
-                    acc_y = int(y+pos.y)
-                    if acc_x >= self.grid._num_column or acc_y >= self.grid._num_row or acc_x < 0 or acc_y < 0:
-                        return False
+        for x, y in shape_val_iter(self.shape):
+            acc_x = int(x+pos.x)
+            acc_y = int(y+pos.y)
+            if acc_x >= self.grid._num_column or acc_y >= self.grid._num_row or acc_x < 0 or acc_y < 0 or self.grid.states[acc_y][acc_x] not in (0, self.id):
+                return False
         return True
 
     def update_pos_if_valid(self, pos: Vector2):
         if self.check_pos_in_grid(pos):
+            for x, y in shape_val_iter(self.shape):
+                self.grid.states[int(y + self.pos.y)][int(x + self.pos.x)] = 0
             self.pos = pos
-            for y, layer in enumerate(self.shape_val):
-                for x, val in enumerate(layer):
-                    if val == 1:
-                        self.grid.states[int(y + self.pos.y)][int(x + self.pos.x)] = 0
-                        self.grid.states[int(y + pos.y)][int(x + pos.x)] = 1
+            for x, y in shape_val_iter(self.shape):
+                self.grid.states[int(y + pos.y)][int(x + pos.x)] = self.id
+            return True
+        return False
     
     def move_down(self):
-        self.update_pos_if_valid(self.pos + Vector2(0, 1))
+        if self.update_pos_if_valid(self.pos + Vector2(0, 1)) is False:
+            event.post(event.Event(PLAYED_A_BLOCK))
+            self.played = True
 
     def move_up(self):
         self.update_pos_if_valid(self.pos - Vector2(0, 1))
@@ -92,6 +116,7 @@ class Game:
         self.elements: List[Element] = [grid,]
         self.grid = grid
         self.cur_control_ele: Block = None
+        self.block_id = 1
 
     def add_elements(self, *ele: Element):
         self.elements.extend(ele)
@@ -101,18 +126,22 @@ class Game:
             e.draw()
 
     def update(self):
-        for e in self.elements:
-            if isinstance(e, Block):
-                e.move_down()
+        self.cur_control_ele.move_down()
+
+    def spawn_block(self):
+        block = Block(Vector2(1, 1), 20, random.choice(list(BlockColor)), self.grid, random.choice(list(Shape)), self.block_id)
+        self.add_elements(block)
+        self.cur_control_ele = block
+        self.block_id += 1
 
 def init_game() -> Game:
     grid = Grid(10, 24, 20)
     game = Game(grid)
-    block = Block(Vector2(1, 1), 20, Color.RED, grid, Shape.L_SHAPE)
-    game.add_elements(block)
-    game.cur_control_ele = block
+    game.spawn_block()
     return game
 
+PLAYED_A_BLOCK = pygame.USEREVENT
+STATE_UPDATE = pygame.USEREVENT + 1
 
 def main():
     pygame.init()
@@ -123,7 +152,6 @@ def main():
     SCREEN.fill(Color.BLACK.value)
     clock = time.Clock()
     game = init_game()
-    STATE_UPDATE = pygame.USEREVENT
     time.set_timer(STATE_UPDATE, 150)
 
     while True:
@@ -131,6 +159,8 @@ def main():
             if e.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit(0)
+            if e.type == PLAYED_A_BLOCK:
+                game.spawn_block()
             if e.type == STATE_UPDATE:
                 game.update()
             if e.type == pygame.KEYDOWN:
@@ -138,6 +168,8 @@ def main():
                     game.cur_control_ele.move_left()
                 if e.key == pygame.K_RIGHT:
                     game.cur_control_ele.move_right()
+                if e.key == pygame.K_UP:
+                    game.cur_control_ele.rotate()
         
         SCREEN.fill(Color.BLACK.value)
         game.draw()
