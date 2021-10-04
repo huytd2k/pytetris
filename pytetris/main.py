@@ -33,8 +33,6 @@ class Grid(Element):
                 rect = pygame.Rect(pos_x, pos_y, self.block_size, self.block_size)
                 draw.rect(SCREEN, Color.WHITE.value, rect, 1)
     
-def check_pos_in_grid(grid: Grid, pos: Vector2):
-    return pos.x < grid._num_column and pos.y < grid._num_row and pos.x >= 0 and pos.y >= 0
     
 class Shape(Enum):
     SQUARE = [[1, 1],
@@ -58,9 +56,24 @@ class Block(Element):
                     rect = pygame.Rect((self.pos.x+x)*self.block_size, (self.pos.y+y)*self.block_size, self.block_size, self.block_size)
                     draw.rect(SCREEN, self.color_val, rect)
     
+    def check_pos_in_grid(self, pos: Vector2):
+        for y, layer in enumerate(self.shape_val):
+            for x, val in enumerate(layer):
+                if val == 1:
+                    acc_x = int(x+pos.x)
+                    acc_y = int(y+pos.y)
+                    if acc_x >= self.grid._num_column or acc_y >= self.grid._num_row or acc_x < 0 or acc_y < 0:
+                        return False
+        return True
+
     def update_pos_if_valid(self, pos: Vector2):
-        if check_pos_in_grid(self.grid, pos):
+        if self.check_pos_in_grid(pos):
             self.pos = pos
+            for y, layer in enumerate(self.shape_val):
+                for x, val in enumerate(layer):
+                    if val == 1:
+                        self.grid.states[int(y + self.pos.y)][int(x + self.pos.x)] = 0
+                        self.grid.states[int(y + pos.y)][int(x + pos.x)] = 1
     
     def move_down(self):
         self.update_pos_if_valid(self.pos + Vector2(0, 1))
