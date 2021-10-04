@@ -36,16 +36,27 @@ class Grid(Element):
 def check_pos_in_grid(grid: Grid, pos: Vector2):
     return pos.x < grid._num_column and pos.y < grid._num_row and pos.x >= 0 and pos.y >= 0
     
+class Shape(Enum):
+    SQUARE = [[1, 1],
+             [1, 1]]
+            
+    L_SHAPE = [[1, 0],
+                [1, 0],
+                [1, 1]]
 class Block(Element):
-    def __init__(self, init_pos: Vector2, block_size: float, color: Color, in_grid: Grid) -> None:
+    def __init__(self, init_pos: Vector2, block_size: float, color: Color, in_grid: Grid, shape: Shape) -> None:
         self.pos = init_pos
         self.block_size = block_size
         self.color_val = color.value
         self.grid = in_grid
+        self.shape_val = shape.value
 
     def draw(self):
-        rect = pygame.Rect(self.pos.x*self.block_size, self.pos.y*self.block_size, self.block_size, self.block_size)
-        draw.rect(SCREEN, self.color_val, rect)
+        for y, layer in enumerate(self.shape_val):
+            for x, val in enumerate(layer):
+                if val == 1:
+                    rect = pygame.Rect((self.pos.x+x)*self.block_size, (self.pos.y+y)*self.block_size, self.block_size, self.block_size)
+                    draw.rect(SCREEN, self.color_val, rect)
     
     def update_pos_if_valid(self, pos: Vector2):
         if check_pos_in_grid(self.grid, pos):
@@ -84,7 +95,7 @@ class Game:
 def init_game() -> Game:
     grid = Grid(10, 24, 20)
     game = Game(grid)
-    block = Block(Vector2(1, 1), 20, Color.RED, grid)
+    block = Block(Vector2(1, 1), 20, Color.RED, grid, Shape.L_SHAPE)
     game.add_elements(block)
     game.cur_control_ele = block
     return game
