@@ -68,32 +68,39 @@ class Block(Element):
         self.played = False
 
     def rotate(self):
-        for x, y in shape_val_iter(self.shape):
-            self.grid.states[int(y + self.pos.y)][int(x + self.pos.x)] = 0
-        self.shape = np.rot90(np.array(self.shape)).tolist()
-        for x, y in shape_val_iter(self.shape):
-            self.grid.states[int(y + self.pos.y)][int(x + self.pos.x)] = self.id
+        retoted_shape = np.rot90(np.array(self.shape)).tolist()
+        if self.check_pos_in_grid(self.pos, next_shape=retoted_shape):
+            for x, y in shape_val_iter(self.shape):
+                self.grid.states[int(y + self.pos.y)][int(x + self.pos.x)] = 0
+            self.shape = retoted_shape
+            for x, y in shape_val_iter(self.shape):
+                self.grid.states[int(y + self.pos.y)][int(x + self.pos.x)] = self.id
 
     def draw(self):
         for x, y in shape_val_iter(self.shape):
             rect = pygame.Rect((self.pos.x+x)*self.block_size, (self.pos.y+y)*self.block_size, self.block_size, self.block_size)
             draw.rect(SCREEN, self.color_val, rect)
     
-    def check_pos_in_grid(self, pos: Vector2):
-        for x, y in shape_val_iter(self.shape):
+    def check_pos_in_grid(self, pos: Vector2, next_shape: List[List[int]] = None):
+        shape = self.shape if next_shape is None else next_shape
+        for x, y in shape_val_iter(shape):
             acc_x = int(x+pos.x)
             acc_y = int(y+pos.y)
+            if acc_y < 0: 
+                continue
             if acc_x >= self.grid._num_column or acc_y >= self.grid._num_row or acc_x < 0 or acc_y < 0 or self.grid.states[acc_y][acc_x] not in (0, self.id):
-                return False
+                    return False
         return True
 
     def update_pos_if_valid(self, pos: Vector2):
         if self.check_pos_in_grid(pos):
             for x, y in shape_val_iter(self.shape):
-                self.grid.states[int(y + self.pos.y)][int(x + self.pos.x)] = 0
+                if y + pos.y >= 0:
+                    self.grid.states[int(y + self.pos.y)][int(x + self.pos.x)] = 0
             self.pos = pos
             for x, y in shape_val_iter(self.shape):
-                self.grid.states[int(y + pos.y)][int(x + pos.x)] = self.id
+                if y + pos.y >= 0:
+                    self.grid.states[int(y + pos.y)][int(x + pos.x)] = self.id
             return True
         return False
     
@@ -129,7 +136,7 @@ class Game:
         self.cur_control_ele.move_down()
 
     def spawn_block(self):
-        block = Block(Vector2(1, 1), 20, random.choice(list(BlockColor)), self.grid, random.choice(list(Shape)), self.block_id)
+        block = Block(Vector2(4, 0), 20, random.choice(list(BlockColor)), self.grid, random.choice(list(Shape)), self.block_id)
         self.add_elements(block)
         self.cur_control_ele = block
         self.block_id += 1
