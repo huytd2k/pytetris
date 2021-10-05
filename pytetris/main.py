@@ -7,6 +7,7 @@ from typing import Iterator, List, Tuple
 import numpy as np
 import pygame
 from pygame import Vector2, display, draw, event, time
+from pygame import mixer
 
 
 class Color(Enum):
@@ -194,16 +195,22 @@ class Game:
         for pos in block.bodies():
             if self.grid.states[int(pos.y)][int(pos.x)] != 0:
                 event.post(event.Event(GAMEOVER))
+                return True
         self.add_elements(block)
         self.cur_control_ele = block
         self.block_id += 1
+        return False
 
-    def handle_grid_state(self):
+    def handle_grid_state(self) -> bool:
+        scored = False
         for idx, row in enumerate(self.grid.states):
             if all((i != 0 for i in row)):
                 self.grid.states.pop(idx)
                 self.grid.states.insert(0, [0 for _ in range(self.grid._num_column)])
                 self.score += 100
+                scored = True
+        return scored
+    
 
 
 def init_game() -> Game:
@@ -234,10 +241,19 @@ def main():
                 pygame.quit()
                 sys.exit(0)
             if e.type == GAMEOVER:
+                mixer.music.load('game_over.ogg')
+                pygame.mixer.music.play(0)
                 game = init_game()
             if e.type == PLAYED_A_BLOCK:
-                game.handle_grid_state()
-                game.spawn_block()
+                scored = game.handle_grid_state()
+                is_game_over = game.spawn_block()
+                if scored:
+                    mixer.music.load('played_a_block2.ogg')
+                    pygame.mixer.music.play(0)
+                else:
+                    if not is_game_over:
+                        mixer.music.load('played_a_block.ogg')
+                        pygame.mixer.music.play(0)
             if e.type == STATE_UPDATE:
                 game.update()
             if e.type == pygame.KEYDOWN:
