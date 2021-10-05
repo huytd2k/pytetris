@@ -11,13 +11,16 @@ from pygame import Vector2, display, draw, event, time
 
 class Color(Enum):
     BLACK = 0, 0, 0
-    WHITE = 255, 255, 255
+    WHITE = 185, 210, 218
+    LIGHT_GREY = 200, 200, 200
+    DARK_GREY = 29, 28, 26
 
 
 class BlockColor(Enum):
-    RED = 255, 0, 0
-    GREEN = 0, 255, 0
-    BLUE = 0, 255, 255
+    RED = 255, 105, 97	
+    GREEN = 119, 221, 119
+    YELLOW = 253, 253, 150	
+    PURPLE = 179, 158, 181	
 
 
 class Element(metaclass=ABCMeta):
@@ -40,7 +43,7 @@ class Grid(Element):
                 pos_x = x * self.block_size
                 pos_y = y * self.block_size
                 rect = pygame.Rect(pos_x, pos_y, self.block_size, self.block_size)
-                draw.rect(SCREEN, Color.WHITE.value, rect, 1)
+                draw.rect(SCREEN, Color.LIGHT_GREY.value, rect, 1)
                 if self.states[y][x] != 0:
                     rect = pygame.Rect(pos_x, pos_y, self.block_size, self.block_size)
                     draw.rect(SCREEN, self.color_storage[self.states[y][x]], rect)
@@ -141,6 +144,12 @@ class Brick(Element):
     def move_left(self):
         self.update_pos_if_valid(self.pos - Vector2(1, 0))
 
+def set_text(string, coordx, coordy, fontSize = 35): #Function to set text
+    font = pygame.font.Font("pixel.ttf", fontSize) 
+    text = font.render(string, True, (0, 0, 0)) 
+    textRect = text.get_rect()
+    textRect.center = (coordx, coordy) 
+    return (text, textRect)
 
 class Game:
     def __init__(self, grid: Grid) -> None:
@@ -150,6 +159,9 @@ class Game:
         self.grid = grid
         self.cur_control_ele: Brick = None
         self.block_id = 1
+        self.speed = 4
+        self.track = 0
+        self.score = 0
 
     def add_elements(self, *ele: Element):
         self.elements.extend(ele)
@@ -157,9 +169,18 @@ class Game:
     def draw(self):
         for e in self.elements:
             e.draw()
+        totalText = set_text(f"Score: {self.score}", 250, 250, 20)
+        SCREEN.blit(totalText[0], totalText[1])
 
     def update(self):
-        self.cur_control_ele.move_down()
+        self.track += 1
+        if self.track == self.speed:
+            self.cur_control_ele.move_down()
+            self.track = 0
+    
+    def set_speed(self, speed: int):
+        self.track = 0
+        self.speed = speed
 
     def spawn_block(self):
         block = Brick(
@@ -182,6 +203,7 @@ class Game:
             if all((i != 0 for i in row)):
                 self.grid.states.pop(idx)
                 self.grid.states.insert(0, [0 for _ in range(self.grid._num_column)])
+                self.score += 100
 
 
 def init_game() -> Game:
@@ -205,8 +227,7 @@ def main():
     SCREEN.fill(Color.BLACK.value)
     clock = time.Clock()
     game = init_game()
-    time.set_timer(STATE_UPDATE, 150)
-
+    time.set_timer(STATE_UPDATE, 50)
     while True:
         for e in event.get():
             if e.type == pygame.QUIT:
@@ -226,8 +247,13 @@ def main():
                     game.cur_control_ele.move_right()
                 if e.key == pygame.K_UP:
                     game.cur_control_ele.rotate()
+                if e.key == pygame.K_DOWN:
+                    game.set_speed(1)
+            if e.type == pygame.KEYUP:
+                if e.key == pygame.K_DOWN:
+                    game.set_speed(4)
 
-        SCREEN.fill(Color.BLACK.value)
+        SCREEN.fill(Color.WHITE.value)
         game.draw()
         display.flip()
         clock.tick(30)
