@@ -39,6 +39,9 @@ class Grid(Element):
                 pos_y = y * self.block_size
                 rect = pygame.Rect(pos_x, pos_y, self.block_size, self.block_size)
                 draw.rect(SCREEN, Color.WHITE.value, rect, 1)
+                if self.states[y][x] != 0:
+                    rect = pygame.Rect(pos_x, pos_y, self.block_size, self.block_size)
+                    draw.rect(SCREEN, Color.WHITE.value, rect)
     
     
 class Shape(Enum):
@@ -49,6 +52,7 @@ class Shape(Enum):
                 [1, 1]]
     STICK = [[1], [1], [1]]
     Z = [[1, 1, 0], [0, 1, 1]]
+    THERE_WAY = [[0, 1, 0], [1, 1, 1]]
 
 
 def shape_val_iter(shape: List[List[int]]) -> Iterator[Tuple[int, int]]:
@@ -56,8 +60,8 @@ def shape_val_iter(shape: List[List[int]]) -> Iterator[Tuple[int, int]]:
         for x, val in enumerate(layer):
             if val == 1:
                 yield (x, y)
-
-class Block(Element):
+                
+class Brick(Element):
     def __init__(self, init_pos: Vector2, block_size: float, color: Color, in_grid: Grid, shape: Shape, id: int) -> None:
         self.id = id
         self.pos = init_pos
@@ -65,7 +69,13 @@ class Block(Element):
         self.color_val = color.value
         self.grid = in_grid
         self.shape = shape.value
+        self.visiable = True
         self.played = False
+    
+    def bodies(self) -> Iterator[Vector2]:
+        if not self.played:
+            for x, y in shape_val_iter(self.shape):
+                yield Vector2(self.pos.x+x, y+self.pos.y)
 
     def rotate(self):
         retoted_shape = np.rot90(np.array(self.shape)).tolist()
@@ -77,9 +87,7 @@ class Block(Element):
                 self.grid.states[int(y + self.pos.y)][int(x + self.pos.x)] = self.id
 
     def draw(self):
-        for x, y in shape_val_iter(self.shape):
-            rect = pygame.Rect((self.pos.x+x)*self.block_size, (self.pos.y+y)*self.block_size, self.block_size, self.block_size)
-            draw.rect(SCREEN, self.color_val, rect)
+        pass
     
     def check_pos_in_grid(self, pos: Vector2, next_shape: List[List[int]] = None):
         shape = self.shape if next_shape is None else next_shape
@@ -122,7 +130,7 @@ class Game:
     def __init__(self, grid: Grid) -> None:
         self.elements: List[Element] = [grid,]
         self.grid = grid
-        self.cur_control_ele: Block = None
+        self.cur_control_ele: Brick = None
         self.block_id = 1
 
     def add_elements(self, *ele: Element):
@@ -136,10 +144,19 @@ class Game:
         self.cur_control_ele.move_down()
 
     def spawn_block(self):
-        block = Block(Vector2(4, 0), 20, random.choice(list(BlockColor)), self.grid, random.choice(list(Shape)), self.block_id)
+        block = Brick(Vector2(4, 0), 20, random.choice(list(BlockColor)), self.grid, random.choice(list(Shape)), self.block_id)
+        for pos in block.bodies():
+            if self.grid.states[int(pos.y)][int(pos.x)] != 0:
+                event.post(event.Event(GAMEOVER))
         self.add_elements(block)
         self.cur_control_ele = block
         self.block_id += 1
+
+    def handle_grid_state(self):
+        for idx, row in enumerate(self.grid.states):
+            if all((i != 0 for i in row)):
+                self.grid.states.pop(idx)
+                self.grid.states.insert(0, [0 for _ in range(self.grid._num_column)])
 
 def init_game() -> Game:
     grid = Grid(10, 24, 20)
@@ -148,7 +165,8 @@ def init_game() -> Game:
     return game
 
 PLAYED_A_BLOCK = pygame.USEREVENT
-STATE_UPDATE = pygame.USEREVENT + 1
+GAMEOVER = pygame.USEREVENT + 1
+STATE_UPDATE = pygame.USEREVENT + 2
 
 def main():
     pygame.init()
@@ -166,7 +184,10 @@ def main():
             if e.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit(0)
+            if e.type == GAMEOVER:
+                game = init_game()
             if e.type == PLAYED_A_BLOCK:
+                game.handle_grid_state()
                 game.spawn_block()
             if e.type == STATE_UPDATE:
                 game.update()
