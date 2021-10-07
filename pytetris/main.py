@@ -1,3 +1,4 @@
+from __future__ import annotations
 import random
 import sys
 from abc import ABCMeta, abstractmethod
@@ -49,6 +50,9 @@ class Grid(Element):
                     rect = pygame.Rect(pos_x, pos_y, self.block_size, self.block_size)
                     draw.rect(SCREEN, self.color_storage[self.states[y][x]], rect)
 
+    def add(self, brick: Brick):
+        brick.grid = self
+        self.color_storage[brick.id] = brick.color_val
 
 class Shape(Enum):
     SQUARE = [[1, 1], [1, 1]]
@@ -59,7 +63,7 @@ class Shape(Enum):
 
 
 def shape_val_iter(shape: List[List[int]]) -> Iterator[Tuple[int, int]]:
-    for y, layer in enumerate(shape):
+   for y, layer in enumerate(shape):
         for x, val in enumerate(layer):
             if val == 1:
                 yield (x, y)
@@ -71,7 +75,6 @@ class Brick(Element):
         init_pos: Vector2,
         block_size: float,
         color: Color,
-        in_grid: Grid,
         shape: Shape,
         id: int,
     ) -> None:
@@ -79,11 +82,14 @@ class Brick(Element):
         self.pos = init_pos
         self.block_size = block_size
         self.color_val = color.value
-        self.grid = in_grid
         self.shape = shape.value
         self.visiable = True
         self.played = False
-        self.grid.color_storage[id] = self.color_val
+        self.grid = None
+
+    @classmethod
+    def random(cls, id: int) -> Brick:
+        return Brick(Vector2(0,0), 20, random.choice(list(BlockColor)), shape=random.choice(list(Shape)), id=id)
 
     def bodies(self) -> Iterator[Vector2]:
         if not self.played:
@@ -163,6 +169,11 @@ class Game:
         self.speed = 4
         self.track = 0
         self.score = 0
+        self.block_queue = [Brick.random(id=id) for id in range(1,4)]
+
+    def _gen_next_brick(self):
+        next_brick = Brick.random(id=self.block_queue[-1].id+1)
+        self.block_queue.append(next_brick)
 
     def add_elements(self, *ele: Element):
         self.elements.extend(ele)
@@ -184,21 +195,16 @@ class Game:
         self.speed = speed
 
     def spawn_block(self):
-        block = Brick(
-            Vector2(4, 0),
-            20,
-            random.choice(list(BlockColor)),
-            self.grid,
-            random.choice(list(Shape)),
-            self.block_id,
-        )
-        for pos in block.bodies():
+        brick = self.block_queue.pop(0)
+        self.grid.add(brick)
+        for pos in brick.bodies():
             if self.grid.states[int(pos.y)][int(pos.x)] != 0:
                 event.post(event.Event(GAMEOVER))
                 return True
-        self.add_elements(block)
-        self.cur_control_ele = block
+        self.add_elements(brick)
+        self.cur_control_ele = brick
         self.block_id += 1
+        self._gen_next_brick()
         return False
 
     def handle_grid_state(self) -> bool:
