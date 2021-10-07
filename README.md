@@ -17,7 +17,7 @@ poetry install --no-dev
 poetry run python pytetris/main.py
 ```
 ### Screnshoot
-![screenshot](./screnshot.png)
+!<img src="./screnshot.png" alt="screnshot" width="200"/>
 ## TODOS
 - [ ] Refractor the code, it's kinda sucks now
 - [ ] Draw brick queue on scree
