@@ -10,13 +10,14 @@ cd pytetris
 ```
 ### Install dependencies
 ```bash
-poetry install
+poetry install --no-dev
 ```
 ### Run with poetry
 ```bash
 poetry run python pytetris/main.py
 ```
-
+### Screnshoot
+![screenshot](./screnshot.png)
 ## TODOS
 - [ ] Refractor the code, it's kinda sucks now
 - [ ] Draw brick queue on scree
